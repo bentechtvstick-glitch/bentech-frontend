@@ -2,26 +2,26 @@ import React, { useState, useMemo, useEffect } from "react";
 import {
   Home, Tv, Film, Layers, Heart, Settings, Search, Bell, User,
   Wifi, Phone, Play, Megaphone, Lock, Eye, EyeOff, X, Radio, MessageCircle,
-  LogOut, ChevronRight, Globe, Moon, Volume2, Info, Check, CalendarClock
+  LogOut, ChevronRight, ChevronUp, Globe, Moon, Volume2, Info, Check, CalendarClock
 } from "lucide-react";
 import { api, resource } from "./api.js";
 
 /* ----------------------------- Design tokens ----------------------------- */
 const C = {
-  bg: "#080B14",
-  bgRaised: "#0E1524",
-  bgCard: "#111A2E",
-  bgCardHover: "#152040",
-  line: "#1E2A45",
-  primary: "#3B7CF6",
-  cyan: "#22D3EE",
-  ember: "#F0384B",
-  green: "#2ED893",
+  bg: "#050B1A",
+  bgRaised: "#0A1830",
+  bgCard: "#0F2140",
+  bgCardHover: "#15305C",
+  line: "#1E3560",
+  primary: "#1868E0",
+  cyan: "#3FA9F5",
+  ember: "#E8293D",
+  green: "#22C55E",
   amber: "#F5A623",
-  purple: "#8B5CF6",
-  text: "#F3F6FC",
-  textDim: "#8C9BB8",
-  textFaint: "#5B6B8C",
+  purple: "#5B6FE0",
+  text: "#F3F7FF",
+  textDim: "#8FA3C7",
+  textFaint: "#526287",
 };
 
 function cx(...a) { return a.filter(Boolean).join(" "); }
@@ -72,6 +72,9 @@ const TRANSLATIONS = {
   category_all: { en: "All", fr: "Tout", ht: "Tout", es: "Todos" },
   guide_view_channels: { en: "Channels", fr: "Chaînes", ht: "Chanèl", es: "Canales" },
   guide_view_guide: { en: "Guide", fr: "Guide", ht: "Gid", es: "Guía" },
+  guide_now: { en: "NOW", fr: "MAINT.", ht: "KOUNYE A", es: "AHORA" },
+  guide_on_now: { en: "ON NOW", fr: "EN COURS", ht: "K ap pase", es: "AL AIRE" },
+  go_to_guide: { en: "Go to Guide", fr: "Aller au Guide", ht: "Ale nan Gid la", es: "Ir a la Guía" },
 
   movies_title: { en: "Movies", fr: "Films", ht: "Fim", es: "Películas" },
   movies_subtitle: { en: "Thousands of movies to explore", fr: "Des milliers de films à découvrir", ht: "Plizyè milye fim pou eksplore", es: "Miles de películas para explorar" },
@@ -458,6 +461,8 @@ function EpgGuide({ channels, onPlay }) {
 
   const nowOffset = Math.max(0, Math.min(totalWidth, (now - windowStart) / 60000 * PX_PER_MIN));
 
+  const totalHeight = HEADER_HEIGHT + channels.length * ROW_HEIGHT;
+
   function blockStyle(p) {
     const start = new Date(p.start);
     const end = new Date(p.end);
@@ -475,8 +480,9 @@ function EpgGuide({ channels, onPlay }) {
   }
 
   return (
-    <div className="rounded-xl overflow-hidden" style={{ border: `1px solid ${C.line}` }}>
-      <div style={{ overflow: "auto", maxHeight: 480 }}>
+    <div className="rounded-2xl overflow-hidden" style={{ border: `1px solid ${C.line}`, boxShadow: "0 20px 50px rgba(0,0,0,.35)" }}>
+      <div style={{ height: 3, background: `linear-gradient(90deg, ${C.primary}, ${C.cyan}, ${C.ember})` }} />
+      <div style={{ overflow: "auto", maxHeight: 480, background: C.bg }}>
         <div style={{ position: "relative", width: CHANNEL_COL_WIDTH + totalWidth }}>
           <div className="flex" style={{ position: "sticky", top: 0, zIndex: 30 }}>
             <div style={{ width: CHANNEL_COL_WIDTH, height: HEADER_HEIGHT, position: "sticky", left: 0, zIndex: 31, background: C.bgRaised, borderRight: `1px solid ${C.line}`, borderBottom: `1px solid ${C.line}` }} />
@@ -484,8 +490,8 @@ function EpgGuide({ channels, onPlay }) {
               {timeLabels.map((tl, i) => (
                 <div
                   key={i}
-                  className="absolute text-[10px] top-0 h-full flex items-center"
-                  style={{ left: tl.left, color: C.textFaint, borderLeft: i > 0 ? `1px solid ${C.line}` : "none", paddingLeft: 4 }}
+                  className="absolute text-[10px] font-semibold top-0 h-full flex items-center tracking-wide"
+                  style={{ left: tl.left, color: i === 0 ? C.cyan : C.textFaint, borderLeft: i > 0 ? `1px solid ${C.line}` : "none", paddingLeft: 6, fontFamily: "'Space Grotesk', sans-serif" }}
                 >
                   {tl.label}
                 </div>
@@ -493,66 +499,92 @@ function EpgGuide({ channels, onPlay }) {
             </div>
           </div>
 
+          {/* now line */}
           <div
             className="absolute"
             style={{
               left: CHANNEL_COL_WIDTH + nowOffset,
-              top: 0,
+              top: HEADER_HEIGHT,
               width: 2,
-              height: HEADER_HEIGHT + channels.length * ROW_HEIGHT,
+              height: totalHeight - HEADER_HEIGHT,
               background: C.ember,
+              boxShadow: `0 0 10px 1px ${C.ember}99`,
               zIndex: 25,
               pointerEvents: "none",
             }}
           />
-
-          {channels.map((ch) => (
-            <div key={ch.name} className="flex" style={{ borderTop: `1px solid ${C.line}` }}>
-              <div
-                className="flex items-center gap-2 px-2"
-                style={{ width: CHANNEL_COL_WIDTH, height: ROW_HEIGHT, position: "sticky", left: 0, zIndex: 15, background: C.bgCard, borderRight: `1px solid ${C.line}` }}
-              >
-                <Radio size={13} color={categoryColor[ch.category] || C.primary} className="shrink-0" />
-                <span className="text-[11px] font-semibold text-white truncate">{ch.name}</span>
-              </div>
-              <div style={{ position: "relative", width: totalWidth, height: ROW_HEIGHT, background: C.bg }}>
-                {programs.filter((p) => p.channel === ch.name).map((p) => {
-                  const style = blockStyle(p);
-                  if (!style) return null;
-                  const playable = style.isLive && !!ch.streamUrl;
-                  return (
-                    <button
-                      key={p.id}
-                      onClick={() => playable && onPlay(ch)}
-                      className="absolute top-1.5 bottom-1.5 rounded-md px-2 text-left overflow-hidden"
-                      style={{
-                        left: style.left + 2,
-                        width: style.width - 4,
-                        background: style.isLive ? `${C.primary}33` : C.bgCard,
-                        border: `1px solid ${style.isLive ? C.primary : C.line}`,
-                        cursor: playable ? "pointer" : "default",
-                      }}
-                    >
-                      <div className="text-[11px] font-semibold text-white truncate">{p.title}</div>
-                      <div className="text-[10px] truncate" style={{ color: C.textFaint }}>
-                        {new Date(p.start).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
+          <div
+            className="absolute flex items-center justify-center"
+            style={{ left: CHANNEL_COL_WIDTH + nowOffset, top: 0, height: HEADER_HEIGHT, transform: "translateX(-50%)", zIndex: 32, pointerEvents: "none" }}
+          >
+            <div
+              className="px-1.5 py-0.5 rounded text-[9px] font-bold text-white whitespace-nowrap"
+              style={{ background: C.ember, boxShadow: `0 0 8px ${C.ember}88` }}
+            >
+              {t("guide_now")}
             </div>
-          ))}
+          </div>
+
+          {channels.map((ch, rowIdx) => {
+            const accent = categoryColor[ch.category] || C.primary;
+            return (
+              <div key={ch.name} className="flex" style={{ borderTop: `1px solid ${C.line}`, background: rowIdx % 2 === 1 ? "rgba(255,255,255,0.015)" : "transparent" }}>
+                <div
+                  className="flex items-center gap-2 px-2.5"
+                  style={{ width: CHANNEL_COL_WIDTH, height: ROW_HEIGHT, position: "sticky", left: 0, zIndex: 15, background: C.bgCard, borderRight: `1px solid ${C.line}` }}
+                >
+                  <div className="w-7 h-7 rounded-full flex items-center justify-center shrink-0" style={{ background: `${accent}22` }}>
+                    <Radio size={13} color={accent} />
+                  </div>
+                  <span className="text-[11px] font-semibold text-white truncate leading-tight">{ch.name}</span>
+                </div>
+                <div style={{ position: "relative", width: totalWidth, height: ROW_HEIGHT }}>
+                  {programs.filter((p) => p.channel === ch.name).map((p) => {
+                    const style = blockStyle(p);
+                    if (!style) return null;
+                    const playable = style.isLive && !!ch.streamUrl;
+                    return (
+                      <button
+                        key={p.id}
+                        onClick={() => playable && onPlay(ch)}
+                        className={cx("absolute top-2 bottom-2 rounded-lg px-2.5 text-left overflow-hidden transition-all", playable && "hover:brightness-125")}
+                        style={{
+                          left: style.left + 2,
+                          width: style.width - 4,
+                          background: style.isLive
+                            ? `linear-gradient(135deg, ${C.primary}55, ${C.primary}22)`
+                            : `linear-gradient(135deg, ${C.bgCard}, ${C.bgRaised})`,
+                          border: `1px solid ${style.isLive ? C.primary : C.line}`,
+                          boxShadow: style.isLive ? `0 0 14px ${C.primary}33` : "none",
+                          cursor: playable ? "pointer" : "default",
+                        }}
+                      >
+                        {style.isLive && (
+                          <div className="flex items-center gap-1 mb-0.5">
+                            <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: C.ember }} />
+                            <span className="text-[8px] font-bold tracking-wide" style={{ color: C.ember }}>{t("guide_on_now")}</span>
+                          </div>
+                        )}
+                        <div className="text-[11px] font-semibold text-white truncate leading-tight">{p.title}</div>
+                        <div className="text-[10px] truncate" style={{ color: C.textFaint }}>
+                          {new Date(p.start).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
         </div>
       </div>
     </div>
   );
 }
 
-function LiveTVPanel({ onPlay, channels, loading }) {
+function LiveTVPanel({ onPlay, channels, loading, view, setView }) {
   const { t } = useTranslation();
   const [filter, setFilter] = useState("All");
-  const [view, setView] = useState("channels"); // "channels" | "guide"
 
   const categories = ["All", ...Array.from(new Set(channels.map((c) => c.category)))];
   const shown = filter === "All" ? channels : channels.filter((c) => c.category === filter);
@@ -846,6 +878,7 @@ function TVHomeScreen({ onLogout }) {
   const [notifList, setNotifList] = useState(notifications);
   const [channels, setChannels] = useState([]);
   const [channelsLoading, setChannelsLoading] = useState(true);
+  const [liveView, setLiveView] = useState("channels"); // "channels" | "guide"
 
   useEffect(() => {
     channelsApi.list()
@@ -892,7 +925,7 @@ function TVHomeScreen({ onLogout }) {
         @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700;800&family=Inter:wght@400;500;600;700&display=swap');
         * { font-family: 'Inter', sans-serif; }
         ::-webkit-scrollbar { width: 6px; height: 6px; }
-        ::-webkit-scrollbar-thumb { background: #2A3A5C; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb { background: #2A4270; border-radius: 3px; }
       `}</style>
 
       <NavShell
@@ -908,6 +941,15 @@ function TVHomeScreen({ onLogout }) {
       />
 
       <div className="flex-1 overflow-y-auto" onClick={() => closePopovers()}>
+        {/* Go to Guide strip */}
+        <button
+          onClick={() => { setActive("live"); setLiveView("guide"); }}
+          className="w-full flex items-center justify-center gap-1.5 py-2 text-[11px] font-semibold"
+          style={{ color: C.textDim, borderBottom: `1px solid ${C.line}`, background: C.bgRaised }}
+        >
+          <ChevronUp size={13} /> {t("go_to_guide")}
+        </button>
+
         {/* Top bar */}
         <div className="flex items-center justify-between px-6 py-5 md:px-8 relative">
           <div className="md:hidden"><Logo size={32} /></div>
@@ -929,7 +971,7 @@ function TVHomeScreen({ onLogout }) {
             </div>
           ) : (
             <div className="hidden md:block text-lg font-semibold" style={{ color: C.text, fontFamily: "'Space Grotesk', sans-serif" }}>
-              {{ home: t("greeting_home"), live: t("nav_live"), movies: t("nav_movies"), series: t("nav_series"), fav: t("nav_favorites"), settings: t("nav_settings") }[active]}
+              {active === "home" ? t("greeting_home") : ""}
             </div>
           )}
 
@@ -990,7 +1032,7 @@ function TVHomeScreen({ onLogout }) {
           </div>
         )}
 
-        {!searchOpen && active === "live" && <LiveTVPanel onPlay={setPlaying} channels={channels} loading={channelsLoading} />}
+        {!searchOpen && active === "live" && <LiveTVPanel onPlay={setPlaying} channels={channels} loading={channelsLoading} view={liveView} setView={setLiveView} />}
         {!searchOpen && active === "movies" && (
           <GridPage title={t("movies_title")} subtitle={t("movies_subtitle")} items={movies} onPlay={setPlaying} favorites={favorites} onToggleFav={toggleFav} />
         )}
@@ -1004,8 +1046,29 @@ function TVHomeScreen({ onLogout }) {
 
         {!searchOpen && active === "home" && (
           <div className="px-6 md:px-8 pb-10 space-y-8">
+            {/* Quick channel strip */}
+            {channels.length > 0 && (
+              <div className="flex gap-2 overflow-x-auto pb-1 -mt-2">
+                {channels.map((ch) => {
+                  const accent = categoryColor[ch.category] || C.primary;
+                  const playable = !!ch.streamUrl;
+                  return (
+                    <button
+                      key={ch.name}
+                      onClick={() => playable ? setPlaying(ch) : setActive("live")}
+                      className="shrink-0 px-3.5 py-2.5 rounded-lg flex items-center justify-center relative"
+                      style={{ background: `linear-gradient(135deg, ${accent}33, ${accent}11)`, border: `1px solid ${accent}55`, minWidth: 78 }}
+                    >
+                      {playable && <span className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: C.ember }} />}
+                      <span className="text-[11px] font-black tracking-tight text-white whitespace-nowrap">{ch.name}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
             {/* Hero */}
-            <div className="relative rounded-2xl overflow-hidden" style={{ background: `linear-gradient(120deg, #0B1224, #0A1830)`, border: `1px solid ${C.line}` }}>
+            <div className="relative rounded-2xl overflow-hidden" style={{ background: `linear-gradient(120deg, #08152C, #0A1D3D)`, border: `1px solid ${C.line}` }}>
               <SignalRing />
               <div className="relative flex flex-col md:flex-row items-center justify-between gap-6 px-6 py-8 md:px-10 md:py-10">
                 <div>
@@ -1050,7 +1113,7 @@ function TVHomeScreen({ onLogout }) {
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               {[
                 { label: t("tile_live_label"), sub: t("tile_live_sub"), icon: Tv, badge: t("tile_live_badge"), grad: [C.ember, "#5E0F1E"], id: "live" },
-                { label: t("tile_movies_label"), sub: t("tile_movies_sub"), icon: Film, grad: [C.purple, "#3A1E7A"], id: "movies" },
+                { label: t("tile_movies_label"), sub: t("tile_movies_sub"), icon: Film, grad: [C.purple, "#1E2E7A"], id: "movies" },
                 { label: t("tile_series_label"), sub: t("tile_series_sub"), icon: Layers, grad: ["#1E3A5F", "#0B1830"], id: "series" },
                 { label: t("tile_fav_label"), sub: t("tile_fav_sub"), icon: Heart, grad: [C.amber, "#8A5A0E"], id: "fav" },
               ].map((tile) => (
@@ -1198,7 +1261,7 @@ function LoginScreen({ onLogin }) {
   }
 
   return (
-    <div className="w-full h-screen flex items-center justify-center relative overflow-hidden" style={{ background: `radial-gradient(circle at 50% 20%, #0F1B33, ${C.bg} 65%)`, fontFamily: "'Inter', sans-serif" }}>
+    <div className="w-full h-screen flex items-center justify-center relative overflow-hidden" style={{ background: `radial-gradient(circle at 50% 20%, #12295A, ${C.bg} 65%)`, fontFamily: "'Inter', sans-serif" }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700;800&family=Inter:wght@400;500;600;700&display=swap');
         * { font-family: 'Inter', sans-serif; }
