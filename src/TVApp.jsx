@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect } from "react";
 import {
   Home, Tv, Film, Layers, Heart, Settings, Search, Bell, User,
   Wifi, Phone, Play, Megaphone, Lock, Eye, EyeOff, X, Radio, MessageCircle,
-  LogOut, ChevronRight, ChevronUp, Globe, Moon, Volume2, Info, Check, CalendarClock
+  LogOut, ChevronRight, ChevronUp, ChevronDown, Globe, Moon, Volume2, Info, Check, CalendarClock
 } from "lucide-react";
 import { api, resource } from "./api.js";
 
@@ -406,6 +406,9 @@ function ChannelCard({ channel, onPlay }) {
             OFFLINE
           </span>
         )}
+        <span className="absolute top-2 right-2 text-[11px] font-black px-1.5 py-0.5 rounded" style={{ background: `${C.primary}22`, color: C.primary, fontFamily: "'Space Grotesk', sans-serif" }}>
+          {channel.order}
+        </span>
         {playable && (
           <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity" style={{ background: "rgba(0,0,0,.4)" }}>
             <Play size={22} fill="#fff" color="#fff" />
@@ -533,8 +536,8 @@ function EpgGuide({ channels, onPlay }) {
                   className="flex items-center gap-2 px-2.5"
                   style={{ width: CHANNEL_COL_WIDTH, height: ROW_HEIGHT, position: "sticky", left: 0, zIndex: 15, background: C.bgCard, borderRight: `1px solid ${C.line}` }}
                 >
-                  <div className="w-7 h-7 rounded-full flex items-center justify-center shrink-0" style={{ background: `${accent}22` }}>
-                    <Radio size={13} color={accent} />
+                  <div className="w-7 h-7 rounded flex items-center justify-center shrink-0 font-black text-[11px]" style={{ background: `${C.primary}22`, color: C.primary, fontFamily: "'Space Grotesk', sans-serif" }}>
+                    {ch.order}
                   </div>
                   <span className="text-[11px] font-semibold text-white truncate leading-tight">{ch.name}</span>
                 </div>
@@ -585,25 +588,44 @@ function EpgGuide({ channels, onPlay }) {
 function LiveTVPanel({ onPlay, channels, loading, view, setView }) {
   const { t } = useTranslation();
   const [filter, setFilter] = useState("All");
+  const [viewMenuOpen, setViewMenuOpen] = useState(false);
 
   const categories = ["All", ...Array.from(new Set(channels.map((c) => c.category)))];
   const shown = filter === "All" ? channels : channels.filter((c) => c.category === filter);
+  const viewOptions = [["channels", t("guide_view_channels")], ["guide", t("guide_view_guide")]];
+  const currentViewLabel = viewOptions.find(([id]) => id === view)?.[1];
 
   return (
-    <div className="px-6 md:px-8 pb-10 pt-6">
+    <div className="px-6 md:px-8 pb-10 pt-6" onClick={() => setViewMenuOpen(false)}>
       <div className="flex items-center justify-between mb-1 flex-wrap gap-3">
         <div className="text-lg font-black" style={{ color: C.text, fontFamily: "'Space Grotesk', sans-serif" }}>{t("live_tv_title")}</div>
-        <div className="flex rounded-lg overflow-hidden shrink-0" style={{ border: `1px solid ${C.line}` }}>
-          {[["channels", t("guide_view_channels")], ["guide", t("guide_view_guide")]].map(([id, label]) => (
-            <button
-              key={id}
-              onClick={() => setView(id)}
-              className="px-3.5 py-1.5 text-xs font-semibold"
-              style={{ background: view === id ? C.primary : C.bgCard, color: view === id ? "#fff" : C.textDim }}
+        <div className="relative shrink-0" onClick={(e) => e.stopPropagation()}>
+          <button
+            onClick={() => setViewMenuOpen((v) => !v)}
+            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold"
+            style={{ background: C.bgCard, color: C.text, border: `1px solid ${C.line}` }}
+          >
+            {currentViewLabel}
+            <ChevronDown size={14} color={C.textFaint} style={{ transform: viewMenuOpen ? "rotate(180deg)" : "none", transition: "transform .15s" }} />
+          </button>
+          {viewMenuOpen && (
+            <div
+              className="absolute right-0 top-full mt-1.5 rounded-lg overflow-hidden z-30"
+              style={{ background: C.bgCard, border: `1px solid ${C.line}`, minWidth: 150, boxShadow: "0 10px 24px rgba(0,0,0,.45)" }}
             >
-              {label}
-            </button>
-          ))}
+              {viewOptions.map(([id, label]) => (
+                <button
+                  key={id}
+                  onClick={() => { setView(id); setViewMenuOpen(false); }}
+                  className="w-full text-left px-3.5 py-2.5 text-xs font-semibold flex items-center justify-between gap-3"
+                  style={{ color: view === id ? C.primary : C.textDim, background: view === id ? `${C.primary}15` : "transparent" }}
+                >
+                  {label}
+                  {view === id && <Check size={13} />}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       </div>
       <p className="text-xs mb-5" style={{ color: C.textFaint }}>
@@ -612,7 +634,27 @@ function LiveTVPanel({ onPlay, channels, loading, view, setView }) {
       {!loading && channels.length === 0 ? (
         <div className="text-sm py-10 text-center" style={{ color: C.textFaint }}>{t("live_tv_empty")}</div>
       ) : view === "guide" ? (
-        <EpgGuide channels={channels} onPlay={onPlay} />
+        <div className="flex gap-4 items-start">
+          <div className="hidden sm:flex flex-col gap-1 shrink-0" style={{ width: 168 }}>
+            {categories.map((cat) => (
+              <button
+                key={cat}
+                onClick={() => setFilter(cat)}
+                className="text-left px-3 py-2.5 rounded-lg text-xs font-semibold"
+                style={{
+                  background: filter === cat ? C.bgCardHover : "transparent",
+                  color: filter === cat ? C.text : C.textDim,
+                  border: `1px solid ${filter === cat ? C.line : "transparent"}`,
+                }}
+              >
+                {cat === "All" ? t("category_all") : cat}
+              </button>
+            ))}
+          </div>
+          <div className="flex-1 min-w-0">
+            <EpgGuide channels={shown} onPlay={onPlay} />
+          </div>
+        </div>
       ) : (
         <>
           <div className="flex gap-2 mb-5 overflow-x-auto pb-1">
@@ -941,15 +983,6 @@ function TVHomeScreen({ onLogout }) {
       />
 
       <div className="flex-1 overflow-y-auto" onClick={() => closePopovers()}>
-        {/* Go to Guide strip */}
-        <button
-          onClick={() => { setActive("live"); setLiveView("guide"); }}
-          className="w-full flex items-center justify-center gap-1.5 py-2 text-[11px] font-semibold"
-          style={{ color: C.textDim, borderBottom: `1px solid ${C.line}`, background: C.bgRaised }}
-        >
-          <ChevronUp size={13} /> {t("go_to_guide")}
-        </button>
-
         {/* Top bar */}
         <div className="flex items-center justify-between px-6 py-5 md:px-8 relative">
           <div className="md:hidden"><Logo size={32} /></div>
