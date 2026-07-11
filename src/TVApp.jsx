@@ -70,6 +70,8 @@ const TRANSLATIONS = {
   live_tv_loading: { en: "Loading channels…", fr: "Chargement des chaînes…", ht: "Ap chaje chanèl yo…", es: "Cargando canales…" },
   live_tv_empty: { en: "No channels available yet.", fr: "Aucune chaîne disponible pour le moment.", ht: "Poko gen chanèl disponib.", es: "Aún no hay canales disponibles." },
   category_all: { en: "All", fr: "Tout", ht: "Tout", es: "Todos" },
+  guide_view_channels: { en: "Channels", fr: "Chaînes", ht: "Chanèl", es: "Canales" },
+  guide_view_guide: { en: "Guide", fr: "Guide", ht: "Gid", es: "Guía" },
 
   movies_title: { en: "Movies", fr: "Films", ht: "Fim", es: "Películas" },
   movies_subtitle: { en: "Thousands of movies to explore", fr: "Des milliers de films à découvrir", ht: "Plizyè milye fim pou eksplore", es: "Miles de películas para explorar" },
@@ -375,6 +377,7 @@ function ContinueCard({ item, onPlay }) {
 /* ----------------------------- Live TV panel ----------------------------- */
 
 const channelsApi = resource("channels", "name");
+const programsApi = resource("programs", "id");
 const categoryColor = {
   News: C.primary, Sports: C.green, Movies: C.purple, Kids: C.amber,
   Music: C.cyan, Documentary: C.ember,
@@ -414,21 +417,170 @@ function ChannelCard({ channel, onPlay }) {
   );
 }
 
+/* ----------------------------- EPG Guide (grid) ----------------------------- */
+
+const PX_PER_MIN = 4;
+const WINDOW_HOURS = 4;
+const CHANNEL_COL_WIDTH = 108;
+const ROW_HEIGHT = 68;
+const HEADER_HEIGHT = 32;
+
+function EpgGuide({ channels, onPlay }) {
+  const { t } = useTranslation();
+  const [programs, setPrograms] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [now, setNow] = useState(new Date());
+
+  useEffect(() => {
+    programsApi.list().then(setPrograms).catch(() => {}).finally(() => setLoading(false));
+  }, []);
+
+  useEffect(() => {
+    const id = setInterval(() => setNow(new Date()), 60000);
+    return () => clearInterval(id);
+  }, []);
+
+  const windowStart = useMemo(() => {
+    const d = new Date(now);
+    d.setMinutes(d.getMinutes() - (d.getMinutes() % 30), 0, 0);
+    return d;
+  }, [now]);
+
+  const totalMinutes = WINDOW_HOURS * 60;
+  const totalWidth = totalMinutes * PX_PER_MIN;
+  const windowEnd = new Date(windowStart.getTime() + totalMinutes * 60000);
+
+  const timeLabels = [];
+  for (let m = 0; m <= totalMinutes; m += 30) {
+    const tt = new Date(windowStart.getTime() + m * 60000);
+    timeLabels.push({ left: m * PX_PER_MIN, label: tt.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" }) });
+  }
+
+  const nowOffset = Math.max(0, Math.min(totalWidth, (now - windowStart) / 60000 * PX_PER_MIN));
+
+  function blockStyle(p) {
+    const start = new Date(p.start);
+    const end = new Date(p.end);
+    if (end <= windowStart || start >= windowEnd) return null;
+    const clippedStart = start < windowStart ? windowStart : start;
+    const clippedEnd = end > windowEnd ? windowEnd : end;
+    const left = (clippedStart - windowStart) / 60000 * PX_PER_MIN;
+    const width = Math.max(24, (clippedEnd - clippedStart) / 60000 * PX_PER_MIN);
+    const isLive = now >= start && now < end;
+    return { left, width, isLive };
+  }
+
+  if (loading) {
+    return <div className="text-sm py-10 text-center" style={{ color: C.textFaint }}>{t("live_tv_loading")}</div>;
+  }
+
+  return (
+    <div className="rounded-xl overflow-hidden" style={{ border: `1px solid ${C.line}` }}>
+      <div style={{ overflow: "auto", maxHeight: 480 }}>
+        <div style={{ position: "relative", width: CHANNEL_COL_WIDTH + totalWidth }}>
+          <div className="flex" style={{ position: "sticky", top: 0, zIndex: 30 }}>
+            <div style={{ width: CHANNEL_COL_WIDTH, height: HEADER_HEIGHT, position: "sticky", left: 0, zIndex: 31, background: C.bgRaised, borderRight: `1px solid ${C.line}`, borderBottom: `1px solid ${C.line}` }} />
+            <div style={{ position: "relative", width: totalWidth, height: HEADER_HEIGHT, background: C.bgRaised, borderBottom: `1px solid ${C.line}` }}>
+              {timeLabels.map((tl, i) => (
+                <div
+                  key={i}
+                  className="absolute text-[10px] top-0 h-full flex items-center"
+                  style={{ left: tl.left, color: C.textFaint, borderLeft: i > 0 ? `1px solid ${C.line}` : "none", paddingLeft: 4 }}
+                >
+                  {tl.label}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div
+            className="absolute"
+            style={{
+              left: CHANNEL_COL_WIDTH + nowOffset,
+              top: 0,
+              width: 2,
+              height: HEADER_HEIGHT + channels.length * ROW_HEIGHT,
+              background: C.ember,
+              zIndex: 25,
+              pointerEvents: "none",
+            }}
+          />
+
+          {channels.map((ch) => (
+            <div key={ch.name} className="flex" style={{ borderTop: `1px solid ${C.line}` }}>
+              <div
+                className="flex items-center gap-2 px-2"
+                style={{ width: CHANNEL_COL_WIDTH, height: ROW_HEIGHT, position: "sticky", left: 0, zIndex: 15, background: C.bgCard, borderRight: `1px solid ${C.line}` }}
+              >
+                <Radio size={13} color={categoryColor[ch.category] || C.primary} className="shrink-0" />
+                <span className="text-[11px] font-semibold text-white truncate">{ch.name}</span>
+              </div>
+              <div style={{ position: "relative", width: totalWidth, height: ROW_HEIGHT, background: C.bg }}>
+                {programs.filter((p) => p.channel === ch.name).map((p) => {
+                  const style = blockStyle(p);
+                  if (!style) return null;
+                  const playable = style.isLive && !!ch.streamUrl;
+                  return (
+                    <button
+                      key={p.id}
+                      onClick={() => playable && onPlay(ch)}
+                      className="absolute top-1.5 bottom-1.5 rounded-md px-2 text-left overflow-hidden"
+                      style={{
+                        left: style.left + 2,
+                        width: style.width - 4,
+                        background: style.isLive ? `${C.primary}33` : C.bgCard,
+                        border: `1px solid ${style.isLive ? C.primary : C.line}`,
+                        cursor: playable ? "pointer" : "default",
+                      }}
+                    >
+                      <div className="text-[11px] font-semibold text-white truncate">{p.title}</div>
+                      <div className="text-[10px] truncate" style={{ color: C.textFaint }}>
+                        {new Date(p.start).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function LiveTVPanel({ onPlay, channels, loading }) {
   const { t } = useTranslation();
   const [filter, setFilter] = useState("All");
+  const [view, setView] = useState("channels"); // "channels" | "guide"
 
   const categories = ["All", ...Array.from(new Set(channels.map((c) => c.category)))];
   const shown = filter === "All" ? channels : channels.filter((c) => c.category === filter);
 
   return (
     <div className="px-6 md:px-8 pb-10 pt-6">
-      <div className="text-lg font-black mb-1" style={{ color: C.text, fontFamily: "'Space Grotesk', sans-serif" }}>{t("live_tv_title")}</div>
+      <div className="flex items-center justify-between mb-1 flex-wrap gap-3">
+        <div className="text-lg font-black" style={{ color: C.text, fontFamily: "'Space Grotesk', sans-serif" }}>{t("live_tv_title")}</div>
+        <div className="flex rounded-lg overflow-hidden shrink-0" style={{ border: `1px solid ${C.line}` }}>
+          {[["channels", t("guide_view_channels")], ["guide", t("guide_view_guide")]].map(([id, label]) => (
+            <button
+              key={id}
+              onClick={() => setView(id)}
+              className="px-3.5 py-1.5 text-xs font-semibold"
+              style={{ background: view === id ? C.primary : C.bgCard, color: view === id ? "#fff" : C.textDim }}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
       <p className="text-xs mb-5" style={{ color: C.textFaint }}>
         {loading ? t("live_tv_loading") : t("live_tv_subtitle")}
       </p>
       {!loading && channels.length === 0 ? (
         <div className="text-sm py-10 text-center" style={{ color: C.textFaint }}>{t("live_tv_empty")}</div>
+      ) : view === "guide" ? (
+        <EpgGuide channels={channels} onPlay={onPlay} />
       ) : (
         <>
           <div className="flex gap-2 mb-5 overflow-x-auto pb-1">
