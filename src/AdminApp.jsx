@@ -5,7 +5,7 @@ import {
   MonitorPlay, ScrollText, BarChart3, Languages, Settings as SettingsIcon,
   ShieldCheck, Wrench, FileClock, Search, Bell, ChevronDown, Plus, Pencil,
   Trash2, X, Lock, Eye, EyeOff, TrendingUp, TrendingDown, Check, ToggleLeft,
-  ToggleRight, Filter, Download, RefreshCcw, AlertTriangle, CalendarClock
+  ToggleRight, Filter, Download, RefreshCcw, AlertTriangle, CalendarClock, Clock
 } from "lucide-react";
 import {
   PieChart, Pie, Cell, LineChart, Line, XAxis, YAxis, ResponsiveContainer, Tooltip, BarChart, Bar
@@ -65,6 +65,7 @@ const NAV = [
   ]},
   { group: "Channels & Profiles", items: [
     { id: "live-events", label: "Live Events", icon: CalendarClock },
+    { id: "program-guide", label: "Program Guide", icon: Clock },
     { id: "channel-profiles", label: "Channel Profiles", icon: Layers },
     { id: "profile-create", label: "Create Profile", icon: FilePlus },
     { id: "channel-manager", label: "Channel Manager", icon: Radio },
@@ -1375,6 +1376,177 @@ function LiveEventsPage() {
   );
 }
 
+const programsApi = resource("programs", "id");
+
+function ProgramGuidePage() {
+  const [rows, setRows] = useState([]);
+  const [modal, setModal] = useState(null); // { type: "add" | "edit" | "delete", program }
+  const [form, setForm] = useState({ channel: "", title: "", category: "News", start: "", end: "" });
+  const [error, setError] = useState("");
+  const [channelFilter, setChannelFilter] = useState("All");
+
+  useEffect(() => {
+    programsApi.list().then(setRows).catch((e) => setError(e.message));
+  }, []);
+
+  function openAdd() {
+    setForm({ channel: channelList[0]?.name || "", title: "", category: "News", start: "", end: "" });
+    setModal({ type: "add" });
+  }
+  function openEdit(p) {
+    setForm({ channel: p.channel, title: p.title, category: p.category, start: p.start, end: p.end });
+    setModal({ type: "edit", program: p });
+  }
+  function openDelete(p) {
+    setModal({ type: "delete", program: p });
+  }
+  function closeModal() { setModal(null); }
+
+  async function handleSaveAdd() {
+    if (!form.title.trim() || !form.channel || !form.start || !form.end) return;
+    const data = { ...form, title: form.title.trim() };
+    try {
+      const saved = await programsApi.add(data);
+      setRows((r) => [...r, saved]);
+      closeModal();
+    } catch (e) { setError(e.message); }
+  }
+  async function handleSaveEdit() {
+    const data = { ...form, title: form.title.trim() };
+    try {
+      await programsApi.update(modal.program.id, data);
+      setRows((r) => r.map((p) => p === modal.program ? { ...p, ...data } : p));
+      closeModal();
+    } catch (e) { setError(e.message); }
+  }
+  async function handleDelete() {
+    try {
+      await programsApi.remove(modal.program.id);
+      setRows((r) => r.filter((p) => p !== modal.program));
+      closeModal();
+    } catch (e) { setError(e.message); }
+  }
+
+  const channelNames = ["All", ...Array.from(new Set(rows.map((p) => p.channel)))];
+  const filtered = (channelFilter === "All" ? rows : rows.filter((p) => p.channel === channelFilter))
+    .slice()
+    .sort((a, b) => a.channel.localeCompare(b.channel) || new Date(a.start) - new Date(b.start));
+
+  return (
+    <div>
+      {error && (
+        <div className="mb-3 flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium" style={{ background: `${C.ember}12`, color: C.ember, width: "fit-content" }}>
+          <AlertTriangle size={13} /> {error}
+        </div>
+      )}
+      <PageHeader
+        title="Program Guide"
+        subtitle="Schedule of programs per channel, shown as a TV-style grid guide in the app"
+        action={<PrimaryButton icon={Plus} onClick={openAdd}>Add Program</PrimaryButton>}
+      />
+      <Card>
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex gap-2 overflow-x-auto">
+            {channelNames.map((c) => (
+              <button
+                key={c}
+                onClick={() => setChannelFilter(c)}
+                className="px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap"
+                style={{
+                  background: channelFilter === c ? C.primary : C.bgApp,
+                  color: channelFilter === c ? "#fff" : C.sub,
+                  border: `1px solid ${channelFilter === c ? C.primary : C.line}`,
+                }}
+              >
+                {c}
+              </button>
+            ))}
+          </div>
+          <div className="text-xs" style={{ color: C.faint }}>{filtered.length} of {rows.length}</div>
+        </div>
+        <table className="w-full text-sm">
+          <thead>
+            <tr style={{ color: C.faint }} className="text-left">
+              <th className="font-medium pb-3 pr-4">Channel</th>
+              <th className="font-medium pb-3 pr-4">Program</th>
+              <th className="font-medium pb-3 pr-4">Category</th>
+              <th className="font-medium pb-3 pr-4">Start</th>
+              <th className="font-medium pb-3 pr-4">End</th>
+              <th className="font-medium pb-3 text-right">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filtered.map((p) => (
+              <tr key={p.id} style={{ borderTop: `1px solid ${C.line}` }}>
+                <td className="py-2.5 pr-4 font-medium" style={{ color: C.ink }}>{p.channel}</td>
+                <td className="py-2.5 pr-4" style={{ color: C.ink }}>{p.title}</td>
+                <td className="py-2.5 pr-4" style={{ color: C.sub }}>{p.category}</td>
+                <td className="py-2.5 pr-4 whitespace-nowrap" style={{ color: C.faint }}>{p.start?.replace("T", " ")}</td>
+                <td className="py-2.5 pr-4 whitespace-nowrap" style={{ color: C.faint }}>{p.end?.replace("T", " ")}</td>
+                <td className="py-2.5 text-right whitespace-nowrap">
+                  <span className="inline-flex gap-3 items-center">
+                    <button onClick={() => openEdit(p)}><Pencil size={14} color={C.faint} /></button>
+                    <button onClick={() => openDelete(p)}><Trash2 size={14} color={C.ember} /></button>
+                  </span>
+                </td>
+              </tr>
+            ))}
+            {filtered.length === 0 && (
+              <tr><td colSpan={6} className="py-8 text-center text-sm" style={{ color: C.faint }}>No programs scheduled yet.</td></tr>
+            )}
+          </tbody>
+        </table>
+      </Card>
+
+      {(modal?.type === "add" || modal?.type === "edit") && (
+        <Modal
+          title={modal.type === "add" ? "Add Program" : "Edit Program"}
+          onClose={closeModal}
+          footer={<>
+            <PrimaryButton onClick={modal.type === "add" ? handleSaveAdd : handleSaveEdit}>
+              {modal.type === "add" ? "Add Program" : "Save Changes"}
+            </PrimaryButton>
+            <PrimaryButton variant="ghost" onClick={closeModal}>Cancel</PrimaryButton>
+          </>}
+        >
+          <Field label="Channel">
+            <Select value={form.channel} options={channelList.map((c) => c.name)} onChange={(e) => setForm((f) => ({ ...f, channel: e.target.value }))} />
+          </Field>
+          <Field label="Program Title">
+            <TextInput value={form.title} onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))} placeholder="Evening News" />
+          </Field>
+          <Field label="Category">
+            <Select value={form.category} options={categories.map((c) => c.name)} onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))} />
+          </Field>
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Start Time">
+              <TextInput type="datetime-local" value={form.start} onChange={(e) => setForm((f) => ({ ...f, start: e.target.value }))} />
+            </Field>
+            <Field label="End Time">
+              <TextInput type="datetime-local" value={form.end} onChange={(e) => setForm((f) => ({ ...f, end: e.target.value }))} />
+            </Field>
+          </div>
+        </Modal>
+      )}
+
+      {modal?.type === "delete" && (
+        <Modal
+          title="Delete Program"
+          onClose={closeModal}
+          footer={<>
+            <PrimaryButton variant="danger" onClick={handleDelete}>Delete</PrimaryButton>
+            <PrimaryButton variant="ghost" onClick={closeModal}>Cancel</PrimaryButton>
+          </>}
+        >
+          <p className="text-sm" style={{ color: C.sub }}>
+            Are you sure you want to delete "<span className="font-semibold" style={{ color: C.ink }}>{modal.program.title}</span>"?
+          </p>
+        </Modal>
+      )}
+    </div>
+  );
+}
+
 function ChannelProfilesPage({ profiles, onEdit, onDelete, onCreate }) {
   const [q, setQ] = useState("");
   const filtered = q
@@ -2510,6 +2682,7 @@ function AdminShell({ onLogout }) {
       case "device-history": return <DeviceHistoryPage />;
       case "subscriptions": return <SubscriptionsPage />;
       case "live-events": return <LiveEventsPage />;
+      case "program-guide": return <ProgramGuidePage />;
       case "channel-profiles": return <ChannelProfilesPage profiles={profiles} onEdit={goEditProfile} onDelete={deleteProfile} onCreate={goCreateProfile} />;
       case "profile-create": return <ProfileFormPage mode="create" editing={null} onCancel={() => setActive("channel-profiles")} onSave={saveProfile} />;
       case "profile-edit": return <ProfileFormPage mode="edit" editing={editingProfile} onCancel={() => setActive("channel-profiles")} onSave={saveProfile} />;
