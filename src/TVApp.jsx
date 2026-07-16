@@ -1,4 +1,6 @@
+
 import React, { useState, useMemo, useEffect } from "react";
+
 import { useTVNavigation, TV_FOCUS_STYLES } from "./useTVNavigation";
 import {
   Home, Tv, Film, Layers, Heart, Settings, Search, Bell, User,
@@ -1361,6 +1363,7 @@ function LoginScreen({ onLogin }) {
 /* ----------------------------- Root ----------------------------- */
 
 export default function App() {
+  useTVNavigation();
   const [loggedIn, setLoggedIn] = useState(false);
   const [lang, setLang] = useState("en");
   const contextValue = useMemo(() => ({
