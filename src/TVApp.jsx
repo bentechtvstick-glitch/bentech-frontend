@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect } from "react";
+import { useTVNavigation, TV_FOCUS_STYLES } from "./useTVNavigation";
 import {
   Home, Tv, Film, Layers, Heart, Settings, Search, Bell, User,
   Wifi, Phone, Play, Megaphone, Lock, Eye, EyeOff, X, Radio, MessageCircle,
