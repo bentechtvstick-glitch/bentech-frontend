@@ -869,10 +869,11 @@ const announcements = [
   "For advertising call 305-555-1234",
   "Special IPTV offers available this month",
   "New channels added to the Sports category",
+  
   "Refer a friend and get 1 month free",
 ];
 
-function AnnouncementTicker() {
+function AnnouncementTicker({ showLabel = false }) {
   const text = announcements.join("   \u2022   ");
 
   return (
@@ -886,7 +887,9 @@ function AnnouncementTicker() {
           100% { transform: translateX(-50%); }
         }
       `}</style>
-      <span className="shrink-0 px-2 py-0.5 rounded font-bold text-white" style={{ background: C.primary }}>ANNOUNCEMENT</span>
+     {showLabel && (
+  <span className="shrink-0 px-2 py-0.5 rounded font-bold text-white" style={{ background: C.primary }}>ANNOUNCEMENT</span>
+)}
       <Megaphone size={13} className="shrink-0" />
       <div className="flex-1 overflow-hidden whitespace-nowrap">
         <div
