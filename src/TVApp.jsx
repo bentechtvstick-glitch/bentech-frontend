@@ -878,7 +878,7 @@ function AnnouncementTicker({ showLabel = false }) {
 
   return (
     <div
-      className="sticky bottom-0 flex items-center gap-3 px-4 py-2 text-xs font-medium overflow-hidden"
+      className="fixed bottom-0 left-0 right-0 z-[60] flex items-center gap-3 px-4 py-2 text-xs font-medium overflow-hidden"
       style={{ background: C.bgRaised, borderTop: `1px solid ${C.line}`, color: C.green }}
     >
       <style>{`
