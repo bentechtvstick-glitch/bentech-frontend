@@ -174,8 +174,9 @@ function NavShell({ items, activeId, onSelect, footer }) {
       className="hidden md:flex flex-col shrink-0 h-full"
       style={{ width: 236, background: C.bgRaised, borderRight: `1px solid ${C.line}` }}
     >
-      <div className="px-5 py-6">
-        <Logo size={38} />
+     <div className="px-5 py-6 flex justify-center">
+  <Logo size={56} />
+</div>
       </div>
       <nav className="flex-1 px-3 space-y-1 mt-2">
         {items.map((it) => {
