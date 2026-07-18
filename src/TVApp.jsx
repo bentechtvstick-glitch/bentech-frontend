@@ -1,7 +1,4 @@
-
 import React, { useState, useMemo, useEffect } from "react";
-
-import { useTVNavigation, TV_FOCUS_STYLES } from "./useTVNavigation";
 import {
   Home, Tv, Film, Layers, Heart, Settings, Search, Bell, User,
   Wifi, Phone, Play, Megaphone, Lock, Eye, EyeOff, X, Radio, MessageCircle,
@@ -74,6 +71,7 @@ const TRANSLATIONS = {
   live_tv_empty: { en: "No channels available yet.", fr: "Aucune chaîne disponible pour le moment.", ht: "Poko gen chanèl disponib.", es: "Aún no hay canales disponibles." },
   category_all: { en: "All", fr: "Tout", ht: "Tout", es: "Todos" },
   guide_view_channels: { en: "Channels", fr: "Chaînes", ht: "Chanèl", es: "Canales" },
+  popup_close: { en: "Close", fr: "Fermer", ht: "Fèmen", es: "Cerrar" },
   guide_view_guide: { en: "Guide", fr: "Guide", ht: "Gid", es: "Guía" },
   guide_now: { en: "NOW", fr: "MAINT.", ht: "KOUNYE A", es: "AHORA" },
   guide_on_now: { en: "ON NOW", fr: "EN COURS", ht: "K ap pase", es: "AL AIRE" },
@@ -174,9 +172,8 @@ function NavShell({ items, activeId, onSelect, footer }) {
       className="hidden md:flex flex-col shrink-0 h-full"
       style={{ width: 236, background: C.bgRaised, borderRight: `1px solid ${C.line}` }}
     >
-     <div className="px-5 py-8 flex justify-center">
-  <Logo size={80} />
-</div>
+      <div className="px-5 py-6">
+        <Logo size={38} />
       </div>
       <nav className="flex-1 px-3 space-y-1 mt-2">
         {items.map((it) => {
@@ -384,13 +381,16 @@ function ContinueCard({ item, onPlay }) {
 /* ----------------------------- Live TV panel ----------------------------- */
 
 const channelsApi = resource("channels", "name");
+const tickersApi = resource("tickers", "message");
+const bannersApi = resource("banners", "content");
+const popupsApi = resource("popups", "title");
 const programsApi = resource("programs", "id");
 const categoryColor = {
   News: C.primary, Sports: C.green, Movies: C.purple, Kids: C.amber,
   Music: C.cyan, Documentary: C.ember,
 };
 
-function ChannelCard({ channel, onPlay }) {
+function ChannelCard({ channel, onPlay, nowPlaying }) {
   const color = categoryColor[channel.category] || C.primary;
   const playable = !!channel.streamUrl;
   return (
@@ -421,7 +421,9 @@ function ChannelCard({ channel, onPlay }) {
       </div>
       <div className="p-3">
         <div className="text-sm font-semibold text-white truncate">{channel.name}</div>
-        <div className="text-xs" style={{ color: C.textFaint }}>{channel.category}</div>
+        <div className="text-xs truncate" style={{ color: nowPlaying ? C.textDim : C.textFaint }}>
+          {nowPlaying ? nowPlaying.title : channel.category}
+        </div>
       </div>
     </button>
   );
@@ -435,15 +437,9 @@ const CHANNEL_COL_WIDTH = 108;
 const ROW_HEIGHT = 68;
 const HEADER_HEIGHT = 32;
 
-function EpgGuide({ channels, onPlay }) {
+function EpgGuide({ channels, onPlay, programs, loading }) {
   const { t } = useTranslation();
-  const [programs, setPrograms] = useState([]);
-  const [loading, setLoading] = useState(true);
   const [now, setNow] = useState(new Date());
-
-  useEffect(() => {
-    programsApi.list().then(setPrograms).catch(() => {}).finally(() => setLoading(false));
-  }, []);
 
   useEffect(() => {
     const id = setInterval(() => setNow(new Date()), 60000);
@@ -593,6 +589,22 @@ function LiveTVPanel({ onPlay, channels, loading, view, setView }) {
   const { t } = useTranslation();
   const [filter, setFilter] = useState("All");
   const [viewMenuOpen, setViewMenuOpen] = useState(false);
+  const [programs, setPrograms] = useState([]);
+  const [programsLoading, setProgramsLoading] = useState(true);
+  const [now, setNow] = useState(new Date());
+
+  useEffect(() => {
+    programsApi.list().then(setPrograms).catch(() => {}).finally(() => setProgramsLoading(false));
+  }, []);
+
+  useEffect(() => {
+    const id = setInterval(() => setNow(new Date()), 60000);
+    return () => clearInterval(id);
+  }, []);
+
+  function getNowPlaying(channelName) {
+    return programs.find((p) => p.channel === channelName && now >= new Date(p.start) && now < new Date(p.end)) || null;
+  }
 
   const categories = ["All", ...Array.from(new Set(channels.map((c) => c.category)))];
   const shown = filter === "All" ? channels : channels.filter((c) => c.category === filter);
@@ -656,7 +668,7 @@ function LiveTVPanel({ onPlay, channels, loading, view, setView }) {
             ))}
           </div>
           <div className="flex-1 min-w-0">
-            <EpgGuide channels={shown} onPlay={onPlay} />
+            <EpgGuide channels={shown} onPlay={onPlay} programs={programs} loading={programsLoading} />
           </div>
         </div>
       ) : (
@@ -678,7 +690,7 @@ function LiveTVPanel({ onPlay, channels, loading, view, setView }) {
             ))}
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-            {shown.map((c) => <ChannelCard key={c.name} channel={c} onPlay={onPlay} />)}
+            {shown.map((c) => <ChannelCard key={c.name} channel={c} onPlay={onPlay} nowPlaying={getNowPlaying(c.name)} />)}
           </div>
         </>
       )}
@@ -863,23 +875,131 @@ function ProfilePanel({ onSettings, onLogout }) {
   );
 }
 
+/* ----------------------------- Promo banner ----------------------------- */
+
+function PromoBanner() {
+  const [banners, setBanners] = useState([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    function load() {
+      bannersApi.list()
+        .then((data) => {
+          if (cancelled) return;
+          setBanners(data.filter((b) => b.type === "Banner" && b.status === "Active"));
+        })
+        .catch(() => {});
+    }
+    load();
+    const id = setInterval(load, 30000); // pick up new/changed banners without a page reload
+    return () => { cancelled = true; clearInterval(id); };
+  }, []);
+
+  if (banners.length === 0) return null;
+
+  return (
+    <div className="flex flex-col gap-2">
+      {banners.map((b) => (
+        <div
+          key={b.content}
+          className="rounded-xl px-4 py-3 flex items-center gap-3"
+          style={{ background: `linear-gradient(90deg, ${C.primary}22, ${C.cyan}11)`, border: `1px solid ${C.primary}44` }}
+        >
+          <Megaphone size={16} color={C.primary} className="shrink-0" />
+          <div className="text-sm font-semibold" style={{ color: C.text }}>{b.content}</div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/* ----------------------------- Popup announcement ----------------------------- */
+
+function PopupAnnouncement() {
+  const { t } = useTranslation();
+  const [popup, setPopup] = useState(null);
+  const [dismissed, setDismissed] = useState(() => new Set());
+
+  useEffect(() => {
+    let cancelled = false;
+    function load() {
+      popupsApi.list()
+        .then((data) => {
+          if (cancelled) return;
+          const now = new Date();
+          const active = data.find((p) => {
+            if (p.active !== "Yes") return false;
+            if (dismissed.has(p.title)) return false;
+            const start = p.start ? new Date(p.start) : null;
+            const end = p.end ? new Date(p.end) : null;
+            if (start && now < start) return false;
+            if (end && now > end) return false;
+            return true;
+          });
+          setPopup(active || null);
+        })
+        .catch(() => {});
+    }
+    load();
+    const id = setInterval(load, 30000); // catch newly-published popups live
+    return () => { cancelled = true; clearInterval(id); };
+  }, [dismissed]);
+
+  if (!popup) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-6" style={{ background: "rgba(0,0,0,.7)" }}>
+      <div className="w-full max-w-sm rounded-2xl overflow-hidden" style={{ background: C.bgCard, border: `1px solid ${C.line}` }}>
+        <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: `1px solid ${C.line}` }}>
+          <div className="flex items-center gap-2">
+            <Megaphone size={16} color={C.primary} />
+            <div className="text-sm font-bold text-white">{popup.title}</div>
+          </div>
+          <button onClick={() => setDismissed((d) => new Set(d).add(popup.title))}>
+            <X size={18} color={C.textFaint} />
+          </button>
+        </div>
+        <div className="p-5">
+          <button
+            onClick={() => setDismissed((d) => new Set(d).add(popup.title))}
+            className="w-full py-2.5 rounded-lg font-bold text-white text-sm"
+            style={{ background: `linear-gradient(90deg, ${C.primary}, ${C.cyan})` }}
+          >
+            {t("popup_close")}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ----------------------------- Announcement ticker ----------------------------- */
 
-const announcements = [
-  "Welcome to BenTech TV Stick",
-  "For advertising call 305-555-1234",
-  "Special IPTV offers available this month",
-  "New channels added to the Sports category",
-  
-  "Refer a friend and get 1 month free",
-];
+function AnnouncementTicker() {
+  const [messages, setMessages] = useState([]);
 
-function AnnouncementTicker({ showLabel = false }) {
-  const text = announcements.join("   \u2022   ");
+  useEffect(() => {
+    let cancelled = false;
+    function load() {
+      tickersApi.list()
+        .then((data) => {
+          if (cancelled) return;
+          const active = data.filter((t) => t.status === "Active").map((t) => t.message);
+          setMessages(active);
+        })
+        .catch(() => {});
+    }
+    load();
+    const id = setInterval(load, 30000); // check for admin updates every 30s, no page reload
+    return () => { cancelled = true; clearInterval(id); };
+  }, []);
+
+  if (messages.length === 0) return null;
+  const text = messages.join("   \u2022   ");
 
   return (
     <div
-      className="fixed bottom-0 left-0 right-0 z-[60] flex items-center gap-3 px-4 py-2 text-xs font-medium overflow-hidden"
+      className="sticky bottom-0 flex items-center gap-3 px-4 py-2 text-xs font-medium overflow-hidden"
       style={{ background: C.bgRaised, borderTop: `1px solid ${C.line}`, color: C.green }}
     >
       <style>{`
@@ -888,9 +1008,7 @@ function AnnouncementTicker({ showLabel = false }) {
           100% { transform: translateX(-50%); }
         }
       `}</style>
-     {showLabel && (
-  <span className="shrink-0 px-2 py-0.5 rounded font-bold text-white" style={{ background: C.primary }}>ANNOUNCEMENT</span>
-)}
+      <span className="shrink-0 px-2 py-0.5 rounded font-bold text-white" style={{ background: C.primary }}>ANNOUNCEMENT</span>
       <Megaphone size={13} className="shrink-0" />
       <div className="flex-1 overflow-hidden whitespace-nowrap">
         <div
@@ -1107,6 +1225,9 @@ function TVHomeScreen({ onLogout }) {
               </div>
             )}
 
+            {/* Admin-configured promo banners */}
+            <PromoBanner />
+
             {/* Hero */}
             <div className="relative rounded-2xl overflow-hidden" style={{ background: `linear-gradient(120deg, #08152C, #0A1D3D)`, border: `1px solid ${C.line}` }}>
               <SignalRing />
@@ -1209,6 +1330,8 @@ function TVHomeScreen({ onLogout }) {
         {/* Ticker */}
         <AnnouncementTicker />
       </div>
+
+      <PopupAnnouncement />
 
       <PlayModal item={playing} onClose={() => setPlaying(null)} />
     </div>
@@ -1367,7 +1490,6 @@ function LoginScreen({ onLogin }) {
 /* ----------------------------- Root ----------------------------- */
 
 export default function App() {
-  useTVNavigation();
   const [loggedIn, setLoggedIn] = useState(false);
   const [lang, setLang] = useState("en");
   const contextValue = useMemo(() => ({
