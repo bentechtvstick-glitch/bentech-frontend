@@ -2412,6 +2412,7 @@ function SettingsPage() {
     timezone: "America/New_York",
     emailAlerts: true,
     smsAlerts: false,
+    showAnnouncementLabel: true,
   });
   const [status, setStatus] = useState(""); // "loading" | "saving" | "saved" | error message
   const [error, setError] = useState("");
@@ -2469,6 +2470,20 @@ function SettingsPage() {
                 <Field label="Support Email"><TextInput value={form.supportEmail} onChange={set("supportEmail")} /></Field>
                 <Field label="Timezone">
                   <Select value={form.timezone} onChange={set("timezone")} options={["America/New_York", "America/Port-au-Prince", "UTC"]} />
+                </Field>
+              </>
+            ),
+          },
+          {
+            title: "Ticker Display",
+            fields: (
+              <>
+                <Field label={'"ANNOUNCEMENT" Label'}>
+                  <Toggle
+                    on={form.showAnnouncementLabel}
+                    onChange={(v) => setForm((f) => ({ ...f, showAnnouncementLabel: v }))}
+                    label={form.showAnnouncementLabel ? "Shown before ticker text" : "Hidden — ticker text only"}
+                  />
                 </Field>
               </>
             ),
