@@ -550,6 +550,7 @@ function EpgGuide({ channels, onPlay, programs, loading }) {
                       <button
                         key={p.id}
                         onClick={() => playable && onPlay(ch)}
+                        onFocus={(e) => e.currentTarget.scrollIntoView({ block: "nearest", inline: "nearest", behavior: "smooth" })}
                         className={cx("absolute top-2 bottom-2 rounded-lg px-2.5 text-left overflow-hidden transition-all", playable && "hover:brightness-125")}
                         style={{
                           left: style.left + 2,
@@ -678,6 +679,7 @@ function LiveTVPanel({ onPlay, channels, loading, view, setView }) {
               <button
                 key={cat}
                 onClick={() => setFilter(cat)}
+                onFocus={(e) => e.currentTarget.scrollIntoView({ block: "nearest", inline: "nearest", behavior: "smooth" })}
                 className="px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap"
                 style={{
                   background: filter === cat ? C.primary : C.bgCard,
@@ -1223,6 +1225,7 @@ function TVHomeScreen({ onLogout }) {
                     <button
                       key={ch.name}
                       onClick={() => playable ? setPlaying(ch) : setActive("live")}
+                      onFocus={(e) => e.currentTarget.scrollIntoView({ block: "nearest", inline: "nearest", behavior: "smooth" })}
                       className="shrink-0 px-3.5 py-2.5 rounded-lg flex items-center justify-center relative"
                       style={{ background: `linear-gradient(135deg, ${accent}33, ${accent}11)`, border: `1px solid ${accent}55`, minWidth: 78 }}
                     >
