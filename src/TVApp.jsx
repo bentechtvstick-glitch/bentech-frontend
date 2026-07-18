@@ -977,6 +977,7 @@ function PopupAnnouncement() {
 
 function AnnouncementTicker() {
   const [messages, setMessages] = useState([]);
+  const [showLabel, setShowLabel] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
@@ -986,6 +987,12 @@ function AnnouncementTicker() {
           if (cancelled) return;
           const active = data.filter((t) => t.status === "Active").map((t) => t.message);
           setMessages(active);
+        })
+        .catch(() => {});
+      api.getSettings()
+        .then((s) => {
+          if (cancelled) return;
+          if (typeof s.showAnnouncementLabel === "boolean") setShowLabel(s.showAnnouncementLabel);
         })
         .catch(() => {});
     }
@@ -1008,7 +1015,9 @@ function AnnouncementTicker() {
           100% { transform: translateX(-50%); }
         }
       `}</style>
-      <span className="shrink-0 px-2 py-0.5 rounded font-bold text-white" style={{ background: C.primary }}>ANNOUNCEMENT</span>
+      {showLabel && (
+        <span className="shrink-0 px-2 py-0.5 rounded font-bold text-white" style={{ background: C.primary }}>ANNOUNCEMENT</span>
+      )}
       <Megaphone size={13} className="shrink-0" />
       <div className="flex-1 overflow-hidden whitespace-nowrap">
         <div
